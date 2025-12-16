@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>AI Expense Categorizer</title>
+</head>
+<body>
+    <h1>AI Personal Expense Categorizer</h1>
+
+    <h2>Add Expense</h2>
+    <form method="POST" action="/">
+        <input type="text" name="description"
+               placeholder="spent 400 for jersey"
+               required>
+        <button type="submit">Add</button>
+    </form>
+
+    <p>{{ message }}</p>
+    <h2>Recent Expenses</h2>
+<table border="1">
+    <tr>
+        <th>Description</th>
+        <th>Amount</th>
+        <th>Category</th>
+        <th>Date</th>
+    </tr>
+    {% for row in recent %}
+    <tr>
+        <td>{{ row[0] }}</td>
+        <td>{{ row[1] }}</td>
+        <td>{{ row[2] }}</td>
+        <td>{{ row[3] }}</td>
+    </tr>
+    {% endfor %}
+</table>
+</body>
+</html>
+
