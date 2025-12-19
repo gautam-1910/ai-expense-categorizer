@@ -59,7 +59,6 @@ def get_monthly_summary():
 
 
 def categorize(description):
-    """Rule-based categorizer that works for both full sentences and single words."""
     text = description.lower()
 
     # Food & drinks
@@ -71,7 +70,6 @@ def categorize(description):
             "cappuccino",
             "coffee",
             "tea",
-            "kuzhimandhi",
             "lunch",
             "dinner",
             "meal",
@@ -106,7 +104,6 @@ def categorize(description):
             "uber",
             "ola",
             "rapido",
-            "flight",
             "bus",
             "train",
             "metro",
@@ -188,43 +185,67 @@ def categorize(description):
 @app.route("/", methods=["GET", "POST"])
 def index():
     message = None
+    error = None
 
     if request.method == "POST":
         form_type = request.form.get("form_type")
 
         if form_type == "text":
             description = request.form.get("description", "").strip()
-            if description:
-                # Simple amount extraction from free text
-                amount = 0.0
+            if not description:
+                error = "Please enter a description for the expense."
+            else:
+                # Try to extract a positive amount from the text
+                amount = None
                 for token in description.split():
                     try:
-                        amount = float(token)
-                        break
+                        value = float(token)
+                        if value > 0:
+                            amount = value
+                            break
                     except ValueError:
                         continue
 
-                category = categorize(description)
-                created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                if amount is None:
+                    error = "Please include a positive amount in the description (e.g. 'spent 200 for coffee')."
+                else:
+                    category = categorize(description)
+                    created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-                conn = sqlite3.connect(DB_PATH)
-                cur = conn.cursor()
-                cur.execute(
-                    "INSERT INTO expenses (description, amount, category, created_at) "
-                    "VALUES (?, ?, ?, ?)",
-                    (description, amount, category, created_at),
-                )
-                conn.commit()
-                conn.close()
-                message = "Expense saved!"
+                    conn = sqlite3.connect(DB_PATH)
+                    cur = conn.cursor()
+                    cur.execute(
+                        "INSERT INTO expenses (description, amount, category, created_at) "
+                        "VALUES (?, ?, ?, ?)",
+                        (description, amount, category, created_at),
+                    )
+                    conn.commit()
+                    conn.close()
+                    message = "Expense saved!"
 
         elif form_type == "structured":
-            amount = request.form.get("amount", "").strip()
+            amount_raw = request.form.get("amount", "").strip()
             item = request.form.get("item", "").strip()
-            if amount and item:
-                amount_val = float(amount)
-                description = item  # same text is categorized and stored
-                category = categorize(description)
+            category_override = request.form.get("category_override", "").strip()
+
+            if not amount_raw or not item:
+                error = "Please provide both amount and item."
+            else:
+                try:
+                    amount_val = float(amount_raw)
+                    if amount_val <= 0:
+                        error = "Amount must be greater than zero."
+                except ValueError:
+                    error = "Amount must be a valid number."
+
+            if not error:
+                description = item
+
+                if category_override:
+                    category = category_override
+                else:
+                    category = categorize(description)
+
                 created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
                 conn = sqlite3.connect(DB_PATH)
@@ -247,6 +268,7 @@ def index():
         category_totals=category_totals,
         overall_total=overall_total,
         message=message,
+        error=error,
     )
 
 

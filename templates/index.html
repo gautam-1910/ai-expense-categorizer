@@ -32,6 +32,18 @@
             <div class="card-header fw-semibold">Add Expense</div>
             <div class="card-body">
 
+                {% if error %}
+                <div class="alert alert-danger">
+                    {{ error }}
+                </div>
+                {% endif %}
+
+                {% if message %}
+                <div class="alert alert-success">
+                    {{ message }}
+                </div>
+                {% endif %}
+
                 <!-- Free-text input -->
                 <form method="POST" action="/" class="mb-3">
                     <input type="hidden" name="form_type" value="text">
@@ -61,18 +73,33 @@
                     <form method="POST" action="/">
                         <input type="hidden" name="form_type" value="structured">
                         <div class="row g-3">
-                            <div class="col-md-4">
+                            <div class="col-md-3">
                                 <label class="form-label">Amount</label>
                                 <input type="number" step="0.01" min="0"
                                        class="form-control" name="amount"
                                        placeholder="200" required>
                             </div>
-                            <div class="col-md-8">
+                            <div class="col-md-5">
                                 <label class="form-label">Item / description</label>
                                 <input type="text"
                                        class="form-control"
                                        name="item"
                                        placeholder="cappuccino" required>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Category (optional)</label>
+                                <select class="form-select" name="category_override">
+                                    <option value="">Auto detect</option>
+                                    <option value="Food">Food</option>
+                                    <option value="Bills">Bills</option>
+                                    <option value="Shopping">Shopping</option>
+                                    <option value="Transport">Transport</option>
+                                    <option value="Rent">Rent</option>
+                                    <option value="Entertainment">Entertainment</option>
+                                    <option value="Health">Health</option>
+                                    <option value="Education">Education</option>
+                                    <option value="Other">Other</option>
+                                </select>
                             </div>
                         </div>
                         <button type="submit" class="btn btn-primary mt-3">
@@ -81,11 +108,6 @@
                     </form>
                 </div>
 
-                {% if message %}
-                <div class="alert alert-success mt-3 mb-0">
-                    {{ message }}
-                </div>
-                {% endif %}
             </div>
         </div>
 
@@ -130,23 +152,32 @@
     <div id="section-summary" class="section">
         <div class="card mb-4">
             <div class="card-header fw-semibold">Monthly Category-wise Spend</div>
-            <div class="card-body p-0">
-                <table class="table table-striped mb-0">
-                    <thead class="table-light">
-                        <tr>
-                            <th>Category</th>
-                            <th>Total Amount</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                    {% for cat, total in category_totals.items() %}
-                        <tr>
-                            <td>{{ cat }}</td>
-                            <td>{{ "%.2f"|format(total) }}</td>
-                        </tr>
-                    {% endfor %}
-                    </tbody>
-                </table>
+            <div class="card-body">
+                <div class="row g-4 align-items-start">
+                    <div class="col-md-5">
+                        <canvas id="monthlyChart" height="200"></canvas>
+                    </div>
+                    <div class="col-md-7">
+                        <div class="table-responsive">
+                            <table class="table table-striped mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Category</th>
+                                        <th>Total Amount</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                {% for cat, total in category_totals.items() %}
+                                    <tr>
+                                        <td>{{ cat }}</td>
+                                        <td>{{ "%.2f"|format(total) }}</td>
+                                    </tr>
+                                {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -165,6 +196,8 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<!-- Chart.js for bar chart -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 
 <script>
     const sectionAdd = document.getElementById('section-add');
@@ -204,6 +237,59 @@
         structuredWrapper.style.display = 'block';
         btnShowStructured.style.display = 'none';
     });
+
+    // --- Monthly bar chart using Chart.js ---
+    const categoryLabels = {{ category_totals.keys() | list | tojson }};
+    const categoryValues = {{ category_totals.values() | list | tojson }};
+
+    // Color palette
+    const baseColors = [
+        'rgba(75, 192, 192, 0.7)',
+        'rgba(255, 99, 132, 0.7)',
+        'rgba(255, 205, 86, 0.7)',
+        'rgba(54, 162, 235, 0.7)',
+        'rgba(153, 102, 255, 0.7)',
+        'rgba(255, 159, 64, 0.7)',
+        'rgba(201, 203, 207, 0.7)',
+        'rgba(0, 200, 140, 0.7)',
+        'rgba(140, 0, 200, 0.7)'
+    ];
+    const borderColors = baseColors.map(c => c.replace('0.7', '1'));
+
+    const barColors = categoryLabels.map((_, i) => baseColors[i % baseColors.length]);
+    const barBorderColors = categoryLabels.map((_, i) => borderColors[i % borderColors.length]);
+
+    const ctx = document.getElementById('monthlyChart').getContext('2d');
+    if (categoryLabels.length > 0) {
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: categoryLabels,
+                datasets: [{
+                    label: 'Amount spent',
+                    data: categoryValues,
+                    backgroundColor: barColors,
+                    borderColor: barBorderColors,
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                plugins: {
+                    legend: { display: false }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return value.toString();
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
 </script>
 </body>
 </html>
