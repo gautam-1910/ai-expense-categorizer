@@ -37,6 +37,26 @@
         </button>
     </div>
 
+        <!-- Month selector -->
+    <form method="get" class="mb-3">
+      <div class="row g-2 align-items-center">
+        <div class="col-auto">
+          <label for="month" class="col-form-label">Show expenses for:</label>
+        </div>
+        <div class="col-auto">
+          <select id="month" name="month" class="form-select form-select-sm">
+            <option value="this" {% if selected_month == 'this' %}selected{% endif %}>This month</option>
+            <option value="last" {% if selected_month == 'last' %}selected{% endif %}>Last month</option>
+            <option value="all" {% if selected_month == 'all' %}selected{% endif %}>All time</option>
+          </select>
+        </div>
+        <div class="col-auto">
+          <button type="submit" class="btn btn-sm btn-primary">Apply</button>
+        </div>
+      </div>
+    </form>
+
+
     <!-- Add Expense section -->
     <div id="section-add" class="section">
         <div class="card mb-4">
@@ -195,7 +215,8 @@
         <div class="card">
             <div class="card-body">
                 <h5 class="card-title mb-0">
-                    Overall total this month:
+    Overall total {% if selected_month == 'this' %}this month{% elif selected_month == 'last' %}last month{% else %}all time{% endif %}: 
+
                     <span class="text-primary">
                         {{ "%.2f"|format(overall_total) }}
                     </span>
@@ -233,8 +254,19 @@
         btnAdd.classList.add('btn-outline-secondary');
     }
 
-    btnAdd.addEventListener('click', showAdd);
-    btnSummary.addEventListener('click', showSummary);
+    // Preserve month filter when switching tabs
+btnAdd.addEventListener('click', function() {
+    showAdd();
+    const month = new URLSearchParams(window.location.search).get('month') || 'this';
+    window.history.replaceState({}, '', `/?month=${month}`);
+});
+
+btnSummary.addEventListener('click', function() {
+    showSummary();
+    const month = new URLSearchParams(window.location.search).get('month') || 'this';
+    window.history.replaceState({}, '', `/?month=${month}`);
+});
+
 
     // Start with Add New Expense visible
     showAdd();

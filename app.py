@@ -78,42 +78,65 @@ def login_required(view_func):
     return wrapped
 
 
-def get_recent_expenses(user_id, limit=10):
+def get_recent_expenses(user_id, month_key="this", limit=10):
     conn = get_db()
     cur = conn.cursor()
-    cur.execute(
-        """
+
+    # Build WHERE clause based on month_key
+    where_clause = "WHERE user_id = ?"
+    params = [user_id]
+
+    if month_key == "this":
+        where_clause += " AND strftime('%Y-%m', created_at) = strftime('%Y-%m', 'now')"
+    elif month_key == "last":
+        where_clause += " AND strftime('%Y-%m', created_at) = strftime('%Y-%m', date('now', '-1 month'))"
+    elif month_key == "all":
+        pass  # no additional filter
+
+    query = f"""
         SELECT id, description, amount, category, created_at
         FROM expenses
-        WHERE user_id = ?
+        {where_clause}
         ORDER BY created_at DESC
         LIMIT ?
-        """,
-        (user_id, limit),
-    )
+    """
+    params.append(limit)
+
+    cur.execute(query, params)
     rows = cur.fetchall()
     conn.close()
     return rows
 
 
-def get_monthly_summary(user_id):
+def get_monthly_summary(user_id, month_key="this"):
     conn = get_db()
     cur = conn.cursor()
-    cur.execute(
-        """
-        SELECT category, SUM(amount)
+    
+    # Build WHERE clause based on month_key
+    where_clause = "WHERE user_id = ?"
+    params = [user_id]
+    
+    if month_key == "this":
+        where_clause += " AND strftime('%Y-%m', created_at) = strftime('%Y-%m', 'now')"
+    elif month_key == "last":
+        where_clause += " AND strftime('%Y-%m', created_at) = strftime('%Y-%m', date('now', '-1 month'))"
+    elif month_key == "all":
+        pass  # no additional filter
+    
+    query = f"""
+        SELECT category, SUM(amount) as total
         FROM expenses
-        WHERE user_id = ?
-          AND strftime('%Y-%m', created_at) = strftime('%Y-%m', 'now')
+        {where_clause}
         GROUP BY category
-        """,
-        (user_id,),
-    )
+    """
+    cur.execute(query, params)
     data = cur.fetchall()
     conn.close()
-    category_totals = {row[0]: row[1] for row in data}
+    
+    category_totals = {row["category"]: row["total"] for row in data}
     overall_total = sum(category_totals.values())
     return category_totals, overall_total
+
 
 
 def categorize(description):
@@ -345,7 +368,7 @@ def index():
         overall_total=overall_total,
         message=message,
         error=error,
-        user=user,
+        user=user
     )
 
 
